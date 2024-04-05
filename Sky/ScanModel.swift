@@ -71,10 +71,26 @@ class ScanModel: ObservableObject {
   func runAllTasks() async {
     started = Date()
 		await withTaskGroup(of: String.self) { [unowned self] group in
-			for number in 0..<total {
+			let batchSize = 4
+			for index in 0..<batchSize {
 				group.addTask {
-					await self.worker(number: number)
+					await self.worker(number: index)
 				}
+			}
+			var index = batchSize
+			for await result in group {
+				print("Completed: \(result)")
+				if index < total {
+					group.addTask { [index] in
+						await self.worker(number: index)
+					}
+					index += 1
+				}
+			}
+			await MainActor.run {
+				completed = 0
+				countPerSecond = 0
+				scheduled = 0
 			}
 		}
   }
